@@ -1,15 +1,29 @@
 import clsx from 'clsx';
 import { useOptions } from '/src/utils/optionsContext';
 
-const TextInput = ({ defValue, onChange, placeholder = 'Enter text', maxW = 40 }) => {
+const TextInput = ({ defValue, onChange, placeholder = 'Enter text', maxW = 40, status }) => {
   const { options } = useOptions();
+
+  const statusStyles =
+    status === 'valid'
+      ? {
+          borderColor: '#22c55e66',
+          backgroundColor: 'rgba(34, 197, 94, 0.08)',
+        }
+      : status === 'invalid'
+        ? {
+            borderColor: '#ef444466',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+          }
+        : null;
 
   return (
     <div
       className={clsx('relative w-full', 'rounded-xl border')}
       style={{
-        backgroundColor: options.settingsDropdownColor || '#1a2a42',
+        backgroundColor: statusStyles?.backgroundColor || options.settingsDropdownColor || '#1a2a42',
         maxWidth: `${maxW}rem`,
+        borderColor: statusStyles?.borderColor,
       }}
     >
       <div className={clsx('flex w-full h-10', 'p-2.5 pl-5')}>
