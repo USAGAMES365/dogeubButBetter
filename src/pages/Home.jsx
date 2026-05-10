@@ -1,6 +1,7 @@
 import Nav from '../layouts/Nav';
 import Search from '../components/SearchContainer';
 import Footer from '../components/Footer';
+import AIAssistant from '../components/AIAssistant';
 import QuickLinks from '../components/QuickLinks';
 import { memo } from 'react';
 
@@ -10,6 +11,7 @@ const Home = memo(() => {
       <Nav />
       <Search />
       <QuickLinks />
+      <AIAssistant />
       <Footer />
     </>
   );
