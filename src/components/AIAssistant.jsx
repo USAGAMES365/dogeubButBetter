@@ -26,6 +26,12 @@ const providerConfig = {
 
 const getProvider = (value) => (providerConfig[value] ? value : 'openai');
 
+const allowedHostsByProvider = {
+  openai: new Set(['api.openai.com']),
+  openrouter: new Set(['openrouter.ai']),
+  gemini: new Set(['generativelanguage.googleapis.com']),
+};
+
 const AIAssistant = () => {
   const { options, updateOption } = useOptions();
   const [prompt, setPrompt] = useState('');
@@ -39,6 +45,7 @@ const AIAssistant = () => {
   const endpoint = options.aiEndpoint || defaults.endpoint;
   const model = options.aiModel || defaults.model;
   const hasKey = Boolean(options.aiApiKey?.trim());
+  const requestTimeoutMs = 30000;
 
   const panelClass = useMemo(
     () => clsx(
@@ -49,11 +56,17 @@ const AIAssistant = () => {
   );
 
   const handleProviderChange = (nextProvider) => {
-    const config = providerConfig[nextProvider];
+    const nextConfig = providerConfig[nextProvider];
+    const prevProvider = getProvider(options.aiProvider);
+    const prevConfig = providerConfig[prevProvider];
+
+    const shouldResetEndpoint = !options.aiEndpoint || options.aiEndpoint === prevConfig.endpoint;
+    const shouldResetModel = !options.aiModel || options.aiModel === prevConfig.model;
+
     updateOption({
       aiProvider: nextProvider,
-      aiEndpoint: config.endpoint,
-      aiModel: config.model,
+      ...(shouldResetEndpoint ? { aiEndpoint: nextConfig.endpoint } : {}),
+      ...(shouldResetModel ? { aiModel: nextConfig.model } : {}),
     });
   };
 
@@ -70,19 +83,33 @@ const AIAssistant = () => {
     setError('');
 
     try {
+      const parsedEndpoint = new URL(endpoint);
+      if (parsedEndpoint.protocol !== 'https:') {
+        throw new Error('Endpoint must use HTTPS.');
+      }
+      if (!allowedHostsByProvider[provider]?.has(parsedEndpoint.host)) {
+        throw new Error(`Endpoint host is not allowed for ${provider}.`);
+      }
+
       const headers = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${options.aiApiKey.trim()}`,
       };
 
       if (provider === 'openrouter') {
-        headers['HTTP-Referer'] = location.origin;
+        if (typeof window !== 'undefined' && window.location?.origin) {
+          headers['HTTP-Referer'] = window.location.origin;
+        }
         headers['X-Title'] = 'dogeub';
       }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
 
       const res = await fetch(endpoint, {
         method: 'POST',
         headers,
+        signal: controller.signal,
         body: JSON.stringify({
           model,
           messages: [
@@ -96,16 +123,39 @@ const AIAssistant = () => {
         }),
       });
 
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Request failed (${res.status}): ${body.slice(0, 160)}`);
+        const bodyText = await res.text();
+        let userMessage = `Request failed (${res.status})`;
+
+        try {
+          const data = JSON.parse(bodyText);
+          const safeMessage =
+            data && typeof data === 'object'
+              ? data.error?.message ?? data.message ?? data.error
+              : null;
+
+          if (typeof safeMessage === 'string' && safeMessage.trim()) {
+            userMessage = safeMessage;
+          }
+        } catch {
+          // fall through to generic message
+        }
+
+        console.error('AIAssistant request failed', { status: res.status, body: bodyText });
+        throw new Error(userMessage);
       }
 
       const data = await res.json();
       const content = data?.choices?.[0]?.message?.content || 'No response content returned.';
       setResponse(content);
     } catch (err) {
-      setError(err.message || 'Failed to run assistant.');
+      if (err?.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError(err?.message || 'Failed to run assistant.');
+      }
     } finally {
       setLoading(false);
     }
@@ -137,7 +187,7 @@ const AIAssistant = () => {
           type="password"
           placeholder={`API key (${defaults.keyPlaceholder})`}
           value={options.aiApiKey || ''}
-          onChange={(e) => updateOption({ aiApiKey: e.target.value }, false)}
+          onChange={(e) => updateOption({ aiApiKey: e.target.value })}
           onBlur={(e) => updateOption({ aiApiKey: e.target.value })}
           className="rounded-lg bg-black/20 border border-white/10 px-3 py-2 outline-none"
         />
@@ -180,7 +230,7 @@ const AIAssistant = () => {
 
       {error && <p className="text-sm text-red-400 mt-2">{error}</p>}
       {response && (
-        <pre className="text-sm whitespace-pre-wrap mt-3 p-3 rounded-lg bg-black/20 border border-white/10">{response}</pre>
+        <pre className="text-sm whitespace-pre-wrap mt-3 p-3 rounded-lg bg-black/20 border border-white/10 max-h-80 overflow-auto">{response}</pre>
       )}
     </section>
   );
