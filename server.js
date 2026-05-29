@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { logging, server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { createBareServer } from "@tomphttp/bare-server-node";
 import { MasqrMiddleware } from "./masqr.js";
+import { fetchPage } from "./stealth-proxy.js";
 
 dotenv.config();
 
@@ -115,6 +116,18 @@ app.get("/return", async (req, reply) =>
         .catch(() => reply.code(500).send({ error: "request failed" }))
     : reply.code(401).send({ error: "query parameter?" })
 );
+
+app.get("/stealth/:rest?", async (req, reply) => {
+  const url = req.query.url;
+  if (!url) return reply.code(400).send({ error: "Missing ?url= parameter" });
+  try {
+    const html = await fetchPage(url);
+    return reply.type("text/html").send(html);
+  } catch (err) {
+    console.error("Stealth proxy error:", err.message);
+    return reply.code(502).send({ error: "Failed to fetch page via stealth browser" });
+  }
+});
 
 app.setNotFoundHandler((req, reply) =>
   req.raw.method === "GET" && req.headers.accept?.includes("text/html")

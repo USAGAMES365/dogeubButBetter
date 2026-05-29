@@ -31,6 +31,7 @@ const scrwlist = new Set([
 export const process = (input, decode = false, prType, engine = "https://www.google.com/search?q=") => {
   const upwefix = '/portal/k12/';
   const eggowaffle = '/ham/';
+  const stealthfix = '/stealth/';
   
   let prefix;
 
@@ -41,6 +42,9 @@ export const process = (input, decode = false, prType, engine = "https://www.goo
     case 'scr':
       prefix = eggowaffle;
       break;
+    case 'stealth':
+      prefix = stealthfix;
+      break;
     default:
       const url = check(input, engine);
       const match = [...scrwlist].some(d => url.includes(d));
@@ -48,6 +52,10 @@ export const process = (input, decode = false, prType, engine = "https://www.goo
   }
 
   if (decode) {
+    if (input.startsWith(stealthfix)) {
+      const u = new URL(input, location.origin);
+      return u.searchParams.get('url') || input;
+    }
     const uvPart = input.split(upwefix)[1];
     const scrPart = input.split(eggowaffle)[1];
     const decoded = uvPart ? mango.dnc(uvPart) : scrPart ? mango.dnc(scrPart) : input;
@@ -57,7 +65,10 @@ export const process = (input, decode = false, prType, engine = "https://www.goo
     if (!final || final.trim() === '') {
       return null;
     }
-    const encoded = prefix === eggowaffle ? mango.enc(final) : mango.enc(final);
+    if (prefix === stealthfix) {
+      return `${location.protocol}//${location.host}${stealthfix}?url=${encodeURIComponent(final)}`;
+    }
+    const encoded = mango.enc(final);
     return `${location.protocol}//${location.host}${prefix}${encoded}`;
   }
 };

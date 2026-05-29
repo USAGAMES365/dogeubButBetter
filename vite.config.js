@@ -12,6 +12,7 @@ import { baremuxPath } from 'bare-mux-fork/node';
 import { scramjetPath } from '@mercuryworkshop/scramjet/path';
 import { uvPath } from '@titaniumnetwork-dev/ultraviolet';
 import dotenv from 'dotenv';
+import { fetchPage } from './stealth-proxy.js';
 
 dotenv.config();
 const useBare = process.env.BARE === 'true';
@@ -124,6 +125,31 @@ export default defineConfig(({ command }) => {
               res.end(JSON.stringify(r ? await r.json() : { error: 'query parameter?' }));
             } catch {
               res.end(JSON.stringify({ error: 'request failed' }));
+            }
+          });
+        },
+      },
+      {
+        name: 'stealth-proxy',
+        apply: 'serve',
+        configureServer(s) {
+          s.middlewares.use('/stealth', async (req, res, next) => {
+            if (req.url !== '/stealth' && !req.url.startsWith('/stealth/')) return next();
+            const url = new URL(req.url, 'http://x').searchParams.get('url');
+            if (!url) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Missing ?url= parameter' }));
+              return;
+            }
+            try {
+              const html = await fetchPage(url);
+              res.setHeader('Content-Type', 'text/html');
+              res.end(html);
+            } catch (err) {
+              res.statusCode = 502;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Failed to fetch page via stealth browser' }));
             }
           });
         },

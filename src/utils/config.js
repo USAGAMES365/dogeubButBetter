@@ -568,6 +568,12 @@ export const prConfig = [
       prType: 'scr',
     },
   },
+  {
+    option: 'Stealth (CloakBrowser)',
+    value: {
+      prType: 'stealth',
+    },
+  },
 ];
 
 export const designConfig = [
