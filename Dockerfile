@@ -40,6 +40,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/server.js ./server.js
+COPY --from=build --chown=node:node /app/stealth-proxy.js ./stealth-proxy.js
 
 # Optional files seen in repo root (safe to include)
 COPY --from=build --chown=node:node /app/masqr.js ./masqr.js

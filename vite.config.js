@@ -1,6 +1,7 @@
 import { defineConfig, normalizePath } from 'vite';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import react from '@vitejs/plugin-react-swc';
 import vitePluginBundleObfuscator from 'vite-plugin-bundle-obfuscator';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -39,7 +40,8 @@ async function remoteApps(urls = ['https://ci.baylib.top/apps.json?t=' + Date.no
     }
   }
 
-  throw lastErr || new Error('apps.json unavailable');
+  console.warn('[remote-apps] All remote URLs failed, falling back to local src/data/apps.json');
+  return readFileSync(resolve(__dirname, 'src/data/apps.json'), 'utf-8');
 }
 
 Object.assign(wisp.options, {
